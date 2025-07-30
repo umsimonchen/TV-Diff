@@ -134,8 +134,9 @@ class TV_Diff(GraphRecommender):
         self.noise_scale = float(args['-noise_scale']) # {0, 1e-5, 1e-4, 5e-3, 1e-2, 1e-1}
         self.noise_min = float(args['-noise_min']) # {5e-4, 1e-3, 5e-3}
         self.noise_max = float(args['-noise_max']) # {5e-3, 1e-2}
-        self.temp = float(args['-temp'])
-        self.gamma = float(args['-gamma'])
+        self.temp = float(args['-temp']) # {0.1, 0.5, 1, 5, 10, 15}
+        self.gamma = float(args['-gamma']) # {0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1}
+        self.type = str(args['-type']) # {'ce', 'bpr', 'nll'}
         self.mean_type = "x0" # default constant, but {"x0", "eps"}
         self.noise_schedule = "linear-var" # default constant, but {"linear", "linear-var", "cosine", "binomial"}
         self.sampling_step = 0 # default constant, but {0, T/4, T/2}
@@ -188,12 +189,7 @@ class TV_Diff(GraphRecommender):
                 raise ValueError("Unimplemented graph type %s"%graph_type)
             return TorchGraphInterface.convert_sparse_mat_to_tensor(norm_adj).cuda()
 
-        sparse_G = construct_sparse_graph(self.data.interaction_mat, 'linkprop') # default constant, but {'sys', 'left', 'linkprop', None}
-        
-        # denosing in reverse process
-        self.model = TV_Diff_Encoder(self.data, self.emb_size, mean_type, self.noise_schedule, self.noise_scale, self.noise_min, self.noise_max, self.steps, self.device, self.temp, self.gamma)
-        encoder_layers = eval('[1000]') # default constant, but {[300], [200,600], [1000]}
-        self.ann_model = AnisotropicNN(self.config, self.data, encoder_layers, self.emb_size, sparse_G, time_type="cat", norm=False)
+        sparse_G = construct_sparse_graph(self.data.interaction_mat, 'sys') # default constant, but {'sys', 'left', 'linkprop', None}
         
         # negative distribution initialization
         coo = TorchGraphInterface.convert_sparse_mat_to_tensor(self.data.interaction_mat)
@@ -204,11 +200,17 @@ class TV_Diff(GraphRecommender):
         prob[row_idx, col_idx] = False
         self.prob = prob.to(torch.float32)
         
+        # denosing in reverse process
+        self.model = TV_Diff_Encoder(self.data, self.emb_size, mean_type, self.noise_schedule, self.noise_scale, self.noise_min, self.noise_max, self.steps, self.device, self.temp, self.gamma, self.row_counts, self.prob)
+        encoder_layers = eval('[1000]') # default constant, but {[300], [200,600], [1000]}
+        self.ann_model = AnisotropicNN(self.config, self.data, encoder_layers, self.emb_size, sparse_G, time_type="cat", norm=False)
+        
     def train(self):
         model = self.model.cuda()
         ann_model = self.ann_model.cuda()
         optimizer_ann = torch.optim.Adam(ann_model.parameters(), lr=self.lRate)#, weight_decay=1e-6)
         early_stopping = False
+        hard = False
         epoch = 0
         
         total_batch = math.ceil(self.data.user_num/self.batch_size)
@@ -216,14 +218,13 @@ class TV_Diff(GraphRecommender):
         for i in range(total_batch):
             all_x_start.append(TorchGraphInterface.convert_sparse_mat_to_tensor(self.data.interaction_mat[i*self.batch_size:(i+1)*self.batch_size]).cuda().float().to_dense())
         
-        entropy_type = 'bpr' # default constant, but {'ce', 'bpr', 'nll'}
         while not early_stopping :
             s = time.time()
-            if entropy_type=='ce' or entropy_type=='nll': # batch-wise user list
-                for n, batch in enumerate(next_batch_user(self.data, self.batch_size, self.prob, self.row_counts)):
+            if self.type=='ce' or self.type=='nll': # batch-wise user list
+                for n, batch in enumerate(next_batch_user(self.data, self.batch_size, self.prob, self.row_counts, hard)):
                     user_idx, neg_x_start = batch
                     x_start = TorchGraphInterface.convert_sparse_mat_to_tensor(self.data.interaction_mat[user_idx]).cuda()
-                    terms = model.training_losses(ann_model, entropy_type, False, input_zip=(x_start, neg_x_start), user_idx=user_idx)
+                    terms = model.training_losses(ann_model, self.type, hard, input_zip=(x_start, neg_x_start), user_idx=user_idx)
                     loss = terms["loss"].mean()
                     
                     # backward propagation
@@ -232,12 +233,12 @@ class TV_Diff(GraphRecommender):
                     optimizer_ann.step()
                     print("Finished training batch: %d / % d."%(n+1,total_batch))
             
-            elif entropy_type=='bpr': # batch-wise training list
+            elif self.type=='bpr': # batch-wise training list
                 bpr_batch = math.ceil(self.data.training_data_num/self.batch_size)
                 for n, batch in enumerate(next_batch_pairwise(self.data, self.batch_size)):
                     user_idx, pos_idx, neg_idx = batch
                     x_start = TorchGraphInterface.convert_sparse_mat_to_tensor(self.data.interaction_mat[user_idx]).cuda()
-                    terms = model.training_losses(ann_model, entropy_type, False, input_zip=(x_start, pos_idx, neg_idx), user_idx=user_idx)
+                    terms = model.training_losses(ann_model, self.type, hard, input_zip=(x_start, pos_idx, neg_idx), user_idx=user_idx)
                     loss = terms["loss"]
                     
                     # backward propagation
@@ -274,7 +275,7 @@ class TV_Diff(GraphRecommender):
 
 class TV_Diff_Encoder(nn.Module):
     def __init__(self, data, emb_size, mean_type, noise_schedule, noise_scale, noise_min, noise_max,\
-            steps, device, temp, gamma, history_num_per_term=10, beta_fixed=True):
+            steps, device, temp, gamma, row_counts, prob, history_num_per_term=10, beta_fixed=True):
         super(TV_Diff_Encoder, self).__init__()
         self.data = data
         self.latent_size = emb_size
@@ -287,6 +288,8 @@ class TV_Diff_Encoder(nn.Module):
         self.device = device
         self.temp = temp
         self.gamma = gamma
+        self.row_counts = row_counts
+        self.prob = prob
         self.lamda = 3 # default
 
         if noise_scale != 0.:
@@ -399,7 +402,8 @@ class TV_Diff_Encoder(nn.Module):
         elif entropy_type=='ce': 
             x_start, neg_x_start = kwargs['input_zip']
             x_start = x_start.coalesce() # In case of lower version Pytorch
-            neg_x_start = neg_x_start.coalesce()
+            if not hard:
+                neg_x_start = neg_x_start.coalesce()
         elif entropy_type=='bpr':
             x_start, pos_idx, neg_idx = kwargs['input_zip']
             x_start = x_start.coalesce() # In case of lower version Pytorch
@@ -431,14 +435,35 @@ class TV_Diff_Encoder(nn.Module):
             _, indices = torch.topk(model_output, int(self.gamma*self.data.item_num*1), dim=1) # for faster sampling - 1-2
             neg_idx = torch.zeros_like(model_output, dtype=torch.bool)
             # neg_idx.scatter_(1, indices[:,:int(self.neg_factor*self.data.item_num)], True) # for stable sampling - 2-1
-            neg_idx.scatter_(1, indices, 1.0).to(torch.float) # for faster sampling - 2-2
+            neg_idx = neg_idx.scatter_(1, indices, 1.0).to(torch.float) # for faster sampling - 2-2
             
             # neg_idx = neg_idx / neg_idx.sum(dim=1, keepdims=True)
             g = -torch.log(-torch.log(torch.rand_like(neg_idx)+1e-10)+1e-10)
-            g_neg_idx = torch.exp(torch.log(neg_idx+1e-10)+g / torch.exp(-self.lamda *(1-ts/self.steps)).unsqueeze(1))
-            g_neg_idx = torch.logical_and(g_neg_idx, self.unobserved_adj[user_idx])
-            _, indices = torch.topk(g_neg_idx, int(self.gamma*self.data.item_num*1), dim=1)
-            return 0
+            g_neg_idx = torch.exp((torch.log(neg_idx+1e-10)+g) / torch.exp(-self.lamda *(1-ts/self.steps)).unsqueeze(1))
+            g_neg_idx = torch.where(self.unobserved_adj[user_idx], g_neg_idx, torch.zeros_like(g_neg_idx))
+            g_neg_idx = torch.clamp(g_neg_idx, min=1e-10, max=1e10)
+            
+            if entropy_type=='bpr':
+                neg_idx = torch.multinomial(g_neg_idx, 1, replacement=False)
+            else:
+                neg_row = []
+                neg_col = []
+                valid_i = torch.arange(len(user_idx))
+                unique_counts, inverse_indices = self.row_counts[user_idx].unique(return_inverse=True)
+                for count_val in unique_counts:
+                    if count_val > 0:
+                        group_mask = inverse_indices == torch.where(unique_counts == count_val)[0][0]
+                        sampled_indices = torch.multinomial(
+                            g_neg_idx[group_mask,:], 
+                            count_val,
+                            replacement=False)
+                        neg_row.append(valid_i[group_mask].repeat_interleave(count_val))
+                        neg_col.append(sampled_indices.ravel())
+                neg_row = torch.cat(neg_row, dim=0).cuda()
+                neg_col = torch.cat(neg_col, dim=0).cuda()
+                neg_x_start = torch.sparse_coo_tensor(torch.stack([neg_row, neg_col]), torch.ones_like(neg_col), \
+                                                      (len(user_idx), self.data.item_num))
+                        
         
         mse = mean_flat((target - model_output) ** 2)
         if entropy_type=='nll':
