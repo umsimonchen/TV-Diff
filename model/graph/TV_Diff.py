@@ -469,10 +469,10 @@ class TV_Diff_Encoder(nn.Module):
         if entropy_type=='nll':
             nll = torch.sparse.sum(nn.functional.logsigmoid(model_output).sparse_mask(x_start), dim=1)
             terms['loss'] = mse - self.temp * nll.to_dense()/self.data.item_num
-        elif entropy_type=='ce':
-            ce = torch.sparse.sum(nn.functional.logsigmoid(model_output).sparse_mask(x_start), dim=1) \
+        elif entropy_type=='bce':
+            bce = torch.sparse.sum(nn.functional.logsigmoid(model_output).sparse_mask(x_start), dim=1) \
                   + torch.sparse.sum(nn.functional.logsigmoid(-model_output).sparse_mask(neg_x_start), dim=1)
-            terms['loss'] = mse - self.temp * ce.to_dense()/self.data.item_num
+            terms['loss'] = mse - self.temp * bce.to_dense()/self.data.item_num
         elif entropy_type=='bpr':
             pos_score = model_output[list(range(batch_size)), pos_idx]
             neg_score = model_output[list(range(batch_size)), neg_idx]
