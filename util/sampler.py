@@ -2,7 +2,7 @@ from random import shuffle,randint,choice,sample
 import numpy as np
 import torch
 
-def next_batch_user(data,batch_size,prob,row_counts):
+def next_batch_user(data,batch_size,prob,row_counts,hard):
     training_data = list(range(data.user_num))
     shuffle(training_data)
     ptr = 0
@@ -14,42 +14,48 @@ def next_batch_user(data,batch_size,prob,row_counts):
             batch_end = data_size
         u_idx = torch.tensor(training_data[ptr:batch_end])
         
-        # Time efficient -- ~500% faster
-        neg_row = []
-        neg_col = []
-        valid_i = torch.arange(len(u_idx))
-        unique_counts, inverse_indices = row_counts[u_idx].unique(return_inverse=True)
-        for count_val in unique_counts:
-            if count_val > 0:
-                group_mask = inverse_indices == torch.where(unique_counts == count_val)[0][0]
-                group_u_idx = torch.masked_select(u_idx, group_mask)
-                sampled_indices = torch.multinomial(
-                    prob[group_u_idx], 
-                    count_val,
-                    replacement=False)
-                neg_row.append(valid_i[group_mask].repeat_interleave(count_val))
-                neg_col.append(sampled_indices.ravel())
-        neg_row = torch.cat(neg_row, dim=0)
-        neg_col = torch.cat(neg_col, dim=0)
-        neg_x_start = torch.sparse_coo_tensor(torch.stack([neg_row, neg_col]), torch.ones_like(neg_col), \
-                                              (len(u_idx), data.item_num)).cuda()    
-        
-        # Space efficient -- ~120% less
-        # neg_row = []
-        # neg_col = []
-        # for i, user in enumerate(u_idx):
-        #     if row_counts[user] > 0:
-        #         sampled_indices = torch.multinomial(
-        #             prob[user], row_counts[user], replacement=False)
-        #         neg_row.append(torch.ones_like(sampled_indices, dtype=torch.int) * i)
-        #         neg_col.append(sampled_indices)
-        # neg_row = torch.cat(neg_row, dim=0)
-        # neg_col = torch.cat(neg_col, dim=0)
-        # neg_x_start = torch.sparse_coo_tensor(torch.stack([neg_row, neg_col]), torch.ones_like(neg_col), \
-        #                                       (len(u_idx), data.item_num)).cuda().to_dense()
-            
         ptr = batch_end
-        yield u_idx, neg_x_start
+        
+        if hard:
+            yield u_idx, None
+            
+        else:    
+            # Time efficient -- ~500% faster
+            neg_row = []
+            neg_col = []
+            valid_i = torch.arange(len(u_idx))
+            unique_counts, inverse_indices = row_counts[u_idx].unique(return_inverse=True)
+            for count_val in unique_counts:
+                if count_val > 0:
+                    group_mask = inverse_indices == torch.where(unique_counts == count_val)[0][0]
+                    group_u_idx = torch.masked_select(u_idx, group_mask)
+                    sampled_indices = torch.multinomial(
+                        prob[group_u_idx], 
+                        count_val,
+                        replacement=False)
+                    neg_row.append(valid_i[group_mask].repeat_interleave(count_val))
+                    neg_col.append(sampled_indices.ravel())
+            neg_row = torch.cat(neg_row, dim=0)
+            neg_col = torch.cat(neg_col, dim=0)
+            neg_x_start = torch.sparse_coo_tensor(torch.stack([neg_row, neg_col]), torch.ones_like(neg_col), \
+                                                  (len(u_idx), data.item_num)).cuda()    
+            
+            # Space efficient -- ~120% less
+            # neg_row = []
+            # neg_col = []
+            # for i, user in enumerate(u_idx):
+            #     if row_counts[user] > 0:
+            #         sampled_indices = torch.multinomial(
+            #             prob[user], row_counts[user], replacement=False)
+            #         neg_row.append(torch.ones_like(sampled_indices, dtype=torch.int) * i)
+            #         neg_col.append(sampled_indices)
+            # neg_row = torch.cat(neg_row, dim=0)
+            # neg_col = torch.cat(neg_col, dim=0)
+            # neg_x_start = torch.sparse_coo_tensor(torch.stack([neg_row, neg_col]), torch.ones_like(neg_col), \
+            #                                       (len(u_idx), data.item_num)).cuda().to_dense()
+                
+            
+            yield u_idx, neg_x_start
 
 def next_batch_pairwise(data,batch_size,n_negs=1):
     training_data = data.training_data
