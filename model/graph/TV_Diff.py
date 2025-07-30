@@ -136,7 +136,7 @@ class TV_Diff(GraphRecommender):
         self.noise_max = float(args['-noise_max']) # {5e-3, 1e-2}
         self.temp = float(args['-temp']) # {0.1, 0.5, 1, 5, 10, 15}
         self.gamma = float(args['-gamma']) # {0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1}
-        self.type = str(args['-type']) # {'ce', 'bpr', 'nll'}
+        self.type = str(args['-type']) # {'bce', 'bpr', 'nll'}
         self.mean_type = "x0" # default constant, but {"x0", "eps"}
         self.noise_schedule = "linear-var" # default constant, but {"linear", "linear-var", "cosine", "binomial"}
         self.sampling_step = 0 # default constant, but {0, T/4, T/2}
@@ -220,7 +220,7 @@ class TV_Diff(GraphRecommender):
         
         while not early_stopping :
             s = time.time()
-            if self.type=='ce' or self.type=='nll': # batch-wise user list
+            if self.type=='bce' or self.type=='nll': # batch-wise user list
                 for n, batch in enumerate(next_batch_user(self.data, self.batch_size, self.prob, self.row_counts, hard)):
                     user_idx, neg_x_start = batch
                     x_start = TorchGraphInterface.convert_sparse_mat_to_tensor(self.data.interaction_mat[user_idx]).cuda()
@@ -399,7 +399,7 @@ class TV_Diff_Encoder(nn.Module):
         if entropy_type=='nll':
             x_start, _ = kwargs['input_zip']
             x_start = x_start.coalesce() # In case of lower version Pytorch
-        elif entropy_type=='ce': 
+        elif entropy_type=='bce': 
             x_start, neg_x_start = kwargs['input_zip']
             x_start = x_start.coalesce() # In case of lower version Pytorch
             if not hard:
