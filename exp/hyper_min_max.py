@@ -110,10 +110,10 @@ n_go = [0.17565,
 
 fig = plt.figure(figsize=(18, 9))
 plt.subplots_adjust(top=0.94,
-bottom=0.02,
+bottom=0.03,
 left=0.0,
 right=1.0,
-hspace=0.05,
+hspace=0.18,
 wspace=0.0)
 
 gs = gridspec.GridSpec(2, 6)
@@ -130,8 +130,8 @@ ax4.bar3d(xx-0.35, yy-0.35, r_ye, 0.46, 0.7, -np.array(r_ye)+np.array(r_ye).min(
 ax5.bar3d(xx-0.35, yy-0.35, r_go, 0.46, 0.7, -np.array(r_go)+np.array(r_go).min(), color='violet', alpha=0.6)
 
 ax1.set_title('LastFM', fontsize=40)
-ax1.set_xlabel('Noise Max.', fontsize=20)
-ax1.set_ylabel('Noise Min.', fontsize=20)
+ax1.set_xlabel(r'$\beta_{max}$', fontsize=30)
+ax1.set_ylabel(r'$\beta_{min}$', fontsize=30)
 ax1.set_zlabel('Recall@20', fontsize=20)
 ax1.zaxis.set_major_formatter(FormatStrFormatter('%.2f'))
 ax1.set_xticks(x, noise_max)
@@ -143,8 +143,8 @@ ax1.set_zlim((np.array(r_fm).min(),np.array(r_fm).max()))
 ax1.view_init(elev=35, azim=125)
 
 ax2.set_title('Amazon-Beauty', fontsize=40)
-ax2.set_xlabel('Noise Max.', fontsize=20)
-ax2.set_ylabel('Noise Min.', fontsize=20)
+ax2.set_xlabel(r'$\beta_{max}$', fontsize=30)
+ax2.set_ylabel(r'$\beta_{min}$', fontsize=30)
 ax2.set_zlabel('Recall@20', fontsize=20)
 ax2.zaxis.set_major_formatter(FormatStrFormatter('%.2f'))
 ax2.set_xticks(x, noise_max)
@@ -156,8 +156,8 @@ ax2.set_zlim((np.array(r_ab).min(),np.array(r_ab).max()))
 ax2.view_init(elev=35, azim=125)
 
 ax3.set_title('Douban-Book', fontsize=40)
-ax3.set_xlabel('Noise Max.', fontsize=20)
-ax3.set_ylabel('Noise Min.', fontsize=20)
+ax3.set_xlabel(r'$\beta_{max}$', fontsize=30)
+ax3.set_ylabel(r'$\beta_{min}$', fontsize=30)
 ax3.set_zlabel('Recall@20', fontsize=20)
 ax3.zaxis.set_major_formatter(FormatStrFormatter('%.2f'))
 ax3.set_xticks(x, noise_max)
@@ -169,8 +169,8 @@ ax3.set_zlim((np.array(r_db).min(),np.array(r_db).max()))
 ax3.view_init(elev=35, azim=125)
 
 ax4.set_title('Yelp2018', fontsize=40)
-ax4.set_xlabel('Noise Max.', fontsize=20)
-ax4.set_ylabel('Noise Min.', fontsize=20)
+ax4.set_xlabel(r'$\beta_{max}$', fontsize=30)
+ax4.set_ylabel(r'$\beta_{min}$', fontsize=30)
 ax4.set_zlabel('Recall@20', fontsize=20)
 ax4.zaxis.set_major_formatter(FormatStrFormatter('%.2f'))
 ax4.set_xticks(x, noise_max)
@@ -182,8 +182,8 @@ ax4.set_zlim((np.array(r_ye).min(),np.array(r_ye).max()))
 ax4.view_init(elev=35, azim=125)
 
 ax5.set_title('Gowalla', fontsize=40)
-ax5.set_xlabel('Noise Max.', fontsize=20)
-ax5.set_ylabel('Noise Min.', fontsize=20)
+ax5.set_xlabel(r'$\beta_{max}$', fontsize=30)
+ax5.set_ylabel(r'$\beta_{min}$', fontsize=30)
 ax5.set_zlabel('Recall@20', fontsize=20)
 ax5.zaxis.set_major_formatter(FormatStrFormatter('%.2f'))
 ax5.set_xticks(x, noise_max)
