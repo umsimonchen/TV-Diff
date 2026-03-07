@@ -2,6 +2,7 @@
   <h1>
     <strong>TV-Diff: Towards A Tri-View Diffusion Framework for Recommendation</strong>
   </h1>
+	<a href="https://info.flagcounter.com/gzkn"><img 		src="https://s01.flagcounter.com/count2/gzkn/bg_FFFFFF/txt_000000/border_CCCCCC/columns_8/maxflags_8/viewers_0/labels_1/pageviews_1/flags_0/percent_0/" alt="Flag Counter" border="0"></a>
 <img width="2500" height="500" alt="fig_entropy" src="https://github.com/user-attachments/assets/5d6d686e-778b-4af8-bf6e-40352e88bd14" />
 <img width="2500" height="500" alt="fig_energy" src="https://github.com/user-attachments/assets/ca4cee6e-2317-46dc-b9b0-4d48ca8849b1" />
 <img width="4000" height="1000" alt="fig_deltaS" src="https://github.com/user-attachments/assets/1e68bcbc-a6ca-4b52-b055-df3aadb00cb8" />
