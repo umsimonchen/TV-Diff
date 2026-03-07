@@ -1,4 +1,15 @@
-<h1>TV-Diff</h1>
+<div align="center">
+  <h1>
+    <strong>TV-Diff: Towards A Tri-View Diffusion Framework for Recommendation</strong>
+  </h1>
+<img width="2500" height="500" alt="fig_entropy" src="https://github.com/user-attachments/assets/5d6d686e-778b-4af8-bf6e-40352e88bd14" />
+<img width="2500" height="500" alt="fig_energy" src="https://github.com/user-attachments/assets/ca4cee6e-2317-46dc-b9b0-4d48ca8849b1" />
+<img width="4000" height="1000" alt="fig_deltaS" src="https://github.com/user-attachments/assets/1e68bcbc-a6ca-4b52-b055-df3aadb00cb8" />
+<img width="4000" height="1000" alt="fig_deltaU" src="https://github.com/user-attachments/assets/bbb495f0-0c0f-4ab3-9aa0-fd1337f3511c" />
+</div>
+
+**TV-Diff** is a novel diffusion recommendation framework from a rigorous tri-view lens. Built on the [SELFRec](https://github.com/Coder-Yu/SELFRec), it employs three mutually interacting components: **Helmholtz Free Energy Maximization** incorporates designated *energy-based* and *entropy-based* training objectives to optimize the model from a thermodynamic view as a foundation of our proposed minimalistic framework. **Anisotropic Denoiser** maintains the anisotropic signals by disentangling the monolithic user-wise encoder-decoder paradigm into users and items aspects, and reconstructing interactions by user-item cross-correlation measurements with explicit topological information. **Acceptance-Rejection Gumbel Sampling Process** first discards true negatives on the general aspect via an acceptance probability. Then, a timestep-dependent Gumbel Softmax is introduced to buffer the risk of mistaking true positives due to excessive noise in the diffusion process. 
+
 <h2>Requirements</h2>
 
 ```
